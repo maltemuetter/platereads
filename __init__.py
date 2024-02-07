@@ -8,3 +8,4 @@ from .fludata import FluorescenceData
 from .well import Well
 from .fitting import CurveFit, LinearCloudFit
 from .pdcurve import PharmacoDynamicCurve, PharmacoDynamicCurves
+from .plateviewer import PlateViewer

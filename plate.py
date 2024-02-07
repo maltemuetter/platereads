@@ -1,14 +1,40 @@
 import os
 import numpy as np
 import pandas as pd
+from icecream import ic
 from .xlsxfile import XlsxFile
 from .xmlfile import XmlFile
 from .setup import Setup
-from icecream import ic
 from .well import Well
 
 
 class Plate:
+    """
+    This class facilitates the reading and processing of data from microtiter plate reader files.
+
+    Attributes:
+        path (str): The directory path where files are located.
+        block_labels (list of str): Labels used to identify blocks of data within the files.
+        gdc_file (bool): Flag indicating the use of GDC file format.
+        datetime_format (str): The format for parsing dates and times in the files.
+        xml_files (list): Accumulator for discovered XML files matching criteria.
+        xlsx_files (list): Accumulator for discovered XLSX files matching criteria.
+        setup (Setup): An instance of the Setup class containing experimental setup information.
+        file_summary (pd.DataFrame): A summary of the data extracted from the files.
+        data (pd.DataFrame): The merged and processed data ready for analysis.
+        identifier (str): An identifier used to match files relevant to the experiment.
+        filetype (str): The file extension (.xml or .xlsx) to filter relevant files.
+
+    Methods:
+        load_xml: Loads and processes XML files based on the class attributes.
+        load_xlsx(polymeasure): Loads and processes XLSX files, with an option for polymetric measurements.
+        add_setup(filepath): Adds experimental setup information from a specified file.
+        merge_setup_and_data: Merges setup information with the data extracted from plate reader files.
+        summarize_files(files): Summarizes the data from multiple files into a single DataFrame.
+        assign_wells: Assigns wells for analysis based on control and experimental data.
+        get_reference_wells: Identifies reference wells for normalization purposes.
+        assign_reference_wells: Assigns reference wells to experimental wells for normalization.
+    """
     def __init__(self, identifier: str, filetype: str, path="./", datetime_format = '%d.%m.%Y %H:%M:%S', block_labels = ["Cycle Nr."], gdc_file = False, polymeasure = False):
         self.path = path
         self.block_labels = block_labels
