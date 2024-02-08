@@ -69,7 +69,7 @@ class MicTest:
     def get_mic(self, n = 1000):
         self.concentrations = self.indicator_df["concentration"].values
         self.observed_growth = self.indicator_df['growth'].values.astype(int)
-        self.concentration_range = np.logspace(np.log(self.concentrations.min())+10**-6, np.log(self.concentrations.max())+10**-6, n)
+        self.concentration_range = np.logspace(np.log(self.concentrations.min()+10**-6)+10**-6, np.log(self.concentrations.max()), n)
         if not self.observed_growth.any():
             self.ci_lower = self.ci_upper = self.mic_estimate = "< " + str(np.min(self.concentrations))
         elif self.observed_growth.all(): 
