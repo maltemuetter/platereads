@@ -103,7 +103,7 @@ class Well:
         base_info = f"Well('{self.name}', Type='{self.well_type}'"
         od_info = f", OD Growth={'Yes' if hasattr(self, 'od_growth') and self.od_growth else 'No'}"
         lum_info = f", Lum Growth={'Yes' if hasattr(self, 'lum_growth') and self.lum_growth else 'No'}"
-        contamination_info = f", Contamination={'Yes' if self.od_contamination else 'No'}"
+        contamination_info = f", Type={self.well_type}"
         
         # Dynamically add fetched features
         features_info = ""

@@ -6,6 +6,7 @@ from .xlsxfile import XlsxFile
 from .xmlfile import XmlFile
 from .setup import Setup
 from .well import Well
+import os
 
 
 class Plate:
@@ -35,7 +36,7 @@ class Plate:
         get_reference_wells: Identifies reference wells for normalization purposes.
         assign_reference_wells: Assigns reference wells to experimental wells for normalization.
     """
-    def __init__(self, identifier: str, filetype: str, path="./", datetime_format = '%d.%m.%Y %H:%M:%S', block_labels = ["Cycle Nr."], gdc_file = False, polymeasure = False):
+    def __init__(self, identifier: str, filetype: str, path="./", datetime_format = '%d.%m.%Y %H:%M:%S', block_labels = ["Cycle Nr."], gdc_file = False, polymeasure = False, plate_name = None):
         self.path = path
         self.block_labels = block_labels
         self.gdc_file = gdc_file
@@ -47,6 +48,10 @@ class Plate:
         self.data = pd.DataFrame()
         self.identifier = identifier
         self.filetype = filetype
+        if not plate_name:
+            self.name = os.path.basename(os.getcwd())
+        else: 
+            self.name = plate_name
         if filetype == ".xml":
             self.load_xml()
         else:
@@ -111,9 +116,10 @@ class Plate:
             lambda x: round(x.seconds / 3600, 2))
         summary["identifier"] = self.identifier
         summary.signal = np.maximum(summary.signal, 0)
+        summary["plate_name"] = self.name
         self.file_summary = summary
 
-    def assign_wells(self, control_col = "control", od_label = None, lum_label = None, src = "data", features = ["concentration", "antibiotic"]):
+    def assign_wells(self, control_col = "control", od_label = None, lum_label = None, src = "data", features = ["concentration", "antibiotic", "plate_name"]):
         df = self.__dict__[src]
         self.well = {}
         for well in df.well.unique():

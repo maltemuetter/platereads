@@ -1,38 +1,39 @@
 from matplotlib import pyplot as plt
-import seaborn as sns
 import math
 import pandas as pd
 import numpy as np
-import math 
-
-
 
 class MicTestMulti:
-    def __init__(self, plate, antibiotic_col = "antibiotic", value_col = "od_norm", concentration_col = "concentration", t_col = "time", control_col = "control", cut_off = .1):
-        self.plate = plate
-        self.data = plate.data[plate.data[control_col] == "assay"].copy()
-        self.antibiotics = self.data[antibiotic_col].unique()
-        self.value_col = value_col
-        self.antibiotic_col = antibiotic_col
-        self.concentration_col = concentration_col
-        self.t = self.data[t_col].unique()
-        self.t_max = self.data[t_col].max()
-        self.t_col = t_col
-        self.cut_off = cut_off
+    def __init__(self, plates:list, control_col = "control"):
+        self.plates = plates
+        self.control_col = control_col
+        self.data = []
+        self.wells = []
+        self.summarize_plates()
+
+        self.antibiotics = self.data["antibiotic"].unique()
         self.get_mics()
+
+    def summarize_plates(self):
+        for plate in self.plates:
+            sub = plate.data[(plate.data[self.control_col] == "assay") | (plate.data[self.control_col] == "positive")] 
+            self.wells += [plate.well[name] for name in sub.well.unique()]
+            self.data.append(plate.data[(plate.data[self.control_col] == "assay") ])
+        self.data = pd.concat(self.data)
 
     def get_mics(self):
         self.mic_tests = {}
         mic = []
         for antibiotic in self.antibiotics:
-            test = MicTest(self.plate, antibiotic, antibiotic_col = "antibiotic", value_col = "od_norm", concentration_col = "concentration", t_col = "time", cut_off = .1)
+            test = MicTest(self.wells, antibiotic)
             self.mic_tests.update( {
                 antibiotic: test})
             mic.append(test.results())    
         self.mic = pd.DataFrame().from_records(mic)
 
-    def save(self, prefix = "", suffix = ""):
-        self.mic.to_csv(prefix + "mic_results" + suffix + ".csv")
+    def save(self, suffix = ""):
+        prefix = "_".join([plate.name for plate in self.plates])
+        self.mic.to_excel(prefix + "mic_results" + suffix + ".xlsx")
 
     def plot(self, figsize = (6, 3)):
         h, w = math.ceil(len(self.antibiotics)/2), 2
@@ -51,33 +52,24 @@ class MicTestMulti:
 
 
 class MicTest:
-    def __init__(self, plate, antibiotic, value_col="od", antibiotic_col="antibiotic", concentration_col="concentration", cut_off=0.1, t_col="time"):
-        self.data = plate.data[plate.data[antibiotic_col] == antibiotic]
-        self.antibiotic = antibiotic
-        self.cut_off = cut_off
-        self.t_col = t_col
-        self.value_col = value_col
-        self.concentration_col = concentration_col
-        self.t = self.data[t_col].unique()
-        self.t_max = self.data[t_col].max()
-
-        self.wells = []
+    def __init__(self, wells:list, antibiotic_name):
+        self.wells = wells
+        self.name = antibiotic_name
         self.indicator_df = []
-        for w in self.data.well.unique():
-            well = plate.well[w]
-            self.wells.append(well)
-            self.indicator_df.append({
-                "well": well.name,
-                "growth": well.od_growth,
-                "concentration": float(well.concentration)
-            })
+        for well in self.wells:
+            if well.antibiotic == antibiotic_name:
+                self.indicator_df.append({
+                    "well": well.name,
+                    "growth": well.od_growth,
+                    "concentration": float(well.concentration)
+                })
         self.indicator_df = pd.DataFrame().from_records(self.indicator_df)
         self.get_mic()
 
     def get_mic(self, n = 1000):
-        self.concentrations = self.indicator_df[self.concentration_col].values
+        self.concentrations = self.indicator_df["concentration"].values
         self.observed_growth = self.indicator_df['growth'].values.astype(int)
-        self.concentration_range = np.logspace(np.log(self.concentrations.min()), np.log(self.concentrations.max()), n)
+        self.concentration_range = np.logspace(np.log(self.concentrations.min())+10**-6, np.log(self.concentrations.max())+10**-6, n)
         if not self.observed_growth.any():
             self.ci_lower = self.ci_upper = self.mic_estimate = "< " + str(np.min(self.concentrations))
         elif self.observed_growth.all(): 
@@ -105,10 +97,10 @@ class MicTest:
         self.mic_estimate = (self.ci_lower + self.ci_upper) / 2
         
 
-    def plot(self, xscale="linear", ax=None):
+    def plot(self, xscale="log", ax=None):
         if ax is None:
             _, ax = plt.subplots()
-        ax.scatter(self.indicator_df[self.concentration_col], self.indicator_df['growth'], color='blue', label='Observations')
+        ax.scatter(self.indicator_df["concentration"], self.indicator_df['growth'], color='blue', label='Observations')
         if not type(self.mic_estimate) == str:
             step_min = self.step_function(self.ci_lower, self.concentration_range)
             step_mean = self.step_function(self.mic_estimate, self.concentration_range)
@@ -117,7 +109,7 @@ class MicTest:
             ax.plot(self.concentration_range, step_mean, 'r--', label=f'Estimated MIC: {self.mic_estimate:.2f} ug/ml')        
         ax.set_xlabel('Concentration (ug/ml)')
         ax.set_ylabel('Growth')
-        ax.set_title(f'Growth vs Concentration for {self.antibiotic}')
+        ax.set_title(f'Growth vs Concentration for {self.name}')
         ax.legend()
         ax.set_xscale(xscale)
 
@@ -125,7 +117,7 @@ class MicTest:
     
     def results(self):
         return {
-            "antibiotic":self.antibiotic,
+            "antibiotic":self.name,
             "mic_best_middle": self.mic_estimate,
             "mic_best_lower" : self.ci_lower,
             "mic_best_upper" : self.ci_upper
