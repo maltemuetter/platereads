@@ -30,10 +30,6 @@ class Well:
         ) = (data, t_col, od_label, lum_label, label_col, signal_col, w)
         self.df = data[data.well == w].copy()
         self.tend = self.df[t_col].max()
-        if od_label:
-            self.od_end = self.df[
-                (self.df[t_col] == self.tend) & (self.df[label_col] == od_label)
-            ][signal_col].values[0]
 
         if len(self.df[type_col]) != 1:
             Exception("well type ambigous")
@@ -43,10 +39,12 @@ class Well:
         if od_label:
             self.od_df = self.df[self.df[label_col] == od_label].copy()
             self.od_values = self.od_df[signal_col].values
-            self.get_od_growth(blank=od_blank, cut_off=od_cut_off)
+            self.get_od_norm(blank=od_blank)
+            self.get_od_growth(cut_off=od_cut_off)
             if (self.well_type == "negative") & self.od_growth:
                 Exception("(od) contamination of well", self.name)
                 self.od_contamination = True
+            self.od_end = self.od_df[(self.df[t_col] == self.tend)]["od_norm"].values[0]
 
         if lum_label:
             self.lum_df = self.df[self.df[label_col] == lum_label].copy()
@@ -79,12 +77,14 @@ class Well:
     def plot_lum_growthcurve(self):
         sns.pointplot(data=self.lum_df, x=self.t_col, y=self.signal_col)
 
-    def get_od_growth(self, blank="min", cut_off=0.1):
+    def get_od_norm(self, blank="min"):
         if blank == "min":
             self.od_df["od_norm"] = self.od_df[self.signal_col] - min(self.od_values)
-            self.od_growth = self.od_df.od_norm.values[-1] > cut_off
         else:
             Exception("no alternative method available yet.")
+
+    def get_od_growth(self, cut_off=0.1):
+        self.od_growth = self.od_df.od_norm.values[-1] > cut_off
 
     def fetch_feature(self, label):
         if label not in self.df.columns:
