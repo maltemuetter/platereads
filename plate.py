@@ -36,7 +36,18 @@ class Plate:
         get_reference_wells: Identifies reference wells for normalization purposes.
         assign_reference_wells: Assigns reference wells to experimental wells for normalization.
     """
-    def __init__(self, identifier: str, filetype: str, path="./", datetime_format = '%d.%m.%Y %H:%M:%S', block_labels = ["Cycle Nr."], gdc_file = False, polymeasure = False, plate_name = None):
+
+    def __init__(
+        self,
+        identifier: str,
+        filetype: str,
+        path="./",
+        datetime_format="%d.%m.%Y %H:%M:%S",
+        block_labels=["Cycle Nr."],
+        gdc_file=False,
+        polymeasure=False,
+        plate_name=None,
+    ):
         self.path = path
         self.block_labels = block_labels
         self.gdc_file = gdc_file
@@ -50,7 +61,7 @@ class Plate:
         self.filetype = filetype
         if not plate_name:
             self.name = os.path.basename(os.getcwd())
-        else: 
+        else:
             self.name = plate_name
         if filetype == ".xml":
             self.load_xml()
@@ -83,12 +94,15 @@ class Plate:
                 ):
                     filepath = os.path.join(root, file)
                     ic(polymeasure)
-                    self.xlsx_files.append(XlsxFile(
-                        filepath, 
-                        datetime_format = self.datetime_format, 
-                        block_labels = self.block_labels, 
-                        gdc_file = self.gdc_file,
-                        polymeasure = polymeasure))
+                    self.xlsx_files.append(
+                        XlsxFile(
+                            filepath,
+                            datetime_format=self.datetime_format,
+                            block_labels=self.block_labels,
+                            gdc_file=self.gdc_file,
+                            polymeasure=polymeasure,
+                        )
+                    )
         self.summarize_files(self.xlsx_files)
 
     def add_setup(self, filepath="setup.xlsx"):
@@ -111,48 +125,61 @@ class Plate:
             df["file_name"] = file.name
             summary.append(df)
         summary = pd.concat(summary)
-        summary["timedelta"] = summary.datetime - summary.datetime.min()
-        summary["time"] = summary.timedelta.apply(
-            lambda x: round(x.seconds / 3600, 2))
+        if self.filetype == ".xlsx":
+            summary["timedelta"] = summary.datetime - summary.datetime.min()
+        else:
+            summary["timedelta"] = summary.time_start - summary.time_start.min()
+        summary["time"] = summary.timedelta.apply(lambda x: round(x.seconds / 3600, 2))
         summary["identifier"] = self.identifier
         summary.signal = np.maximum(summary.signal, 0)
-        summary["plate_name"] = self.name
         self.file_summary = summary
 
-    def assign_wells(self, control_col = "control", od_label = None, lum_label = None, src = "data", features = ["concentration", "antibiotic", "plate_name"]):
+    def assign_wells(
+        self,
+        control_col="control",
+        od_label=None,
+        lum_label=None,
+        src="data",
+        features=["concentration", "antibiotic"],
+        label_col="method",
+    ):
         df = self.__dict__[src]
         self.well = {}
         for well in df.well.unique():
-            w = Well(df, well, od_label = od_label, lum_label = lum_label)
+            print(well)
+            w = Well(
+                df, well, od_label=od_label, lum_label=lum_label, label_col="method"
+            )
             for feature in features:
                 w.fetch_feature(feature)
-            self.well.update({
-                well:w
-            })
+            self.well.update({well: w})
         if lum_label:
             self.get_reference_wells()
             if not self.reference_wells.empty:
                 self.assign_reference_wells()
-    
-    def get_reference_wells(self, type_col = "control", data_name = "data"):
+
+    def get_reference_wells(self, type_col="control", data_name="data"):
         df = self.__dict__[data_name]
         self.type_col = type_col
         self.neg_controls = df[df[type_col] == "negative"].well.unique()
-        self.reference_wells = [{"well":w, "contamination":self.well[w].od_contamination} for w in self.neg_controls]
+        self.reference_wells = [
+            {"well": w, "contamination": self.well[w].od_contamination}
+            for w in self.neg_controls
+        ]
         self.reference_wells = pd.DataFrame().from_records(self.reference_wells)
-        self.reference_wells["obj"] = self.reference_wells.well.apply(lambda x: self.well[x])
+        self.reference_wells["obj"] = self.reference_wells.well.apply(
+            lambda x: self.well[x]
+        )
 
-    def assign_reference_wells(self, norm_method = "closest"):
+    def assign_reference_wells(self, norm_method="closest"):
         assays = self.data[self.data[self.type_col] == "assay"].well.unique()
         self.assay_wells = [self.well[i] for i in assays]
         for well in self.assay_wells:
             well.assign_reference_wells(self.reference_wells)
-            well.norm_lum_wells(method = norm_method)
+            well.norm_lum_wells(method=norm_method)
 
         positives = self.data[self.data[self.type_col] == "positive"].well.unique()
         self.positives = [self.well[i] for i in positives]
         for well in self.positives:
             well.assign_reference_wells(self.reference_wells)
-            well.norm_lum_wells(method = norm_method)
-
-    
+            well.norm_lum_wells(method=norm_method)
