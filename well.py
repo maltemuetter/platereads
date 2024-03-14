@@ -29,7 +29,11 @@ class Well:
             self.name,
         ) = (data, t_col, od_label, lum_label, label_col, signal_col, w)
         self.df = data[data.well == w].copy()
+        self.df = self.df.sort_values(by=t_col)
         self.tend = self.df[t_col].max()
+        self.iend = self.df[self.df.time == self.tend].index[0]
+        self.t0 = self.df[t_col].min()
+        self.i0 = self.df[self.df.time == self.tend].index[0]
 
         if len(self.df[type_col]) != 1:
             Exception("well type ambigous")

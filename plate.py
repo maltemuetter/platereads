@@ -136,19 +136,24 @@ class Plate:
 
     def assign_wells(
         self,
-        control_col="control",
         od_label=None,
         lum_label=None,
         src="data",
         features=["concentration", "antibiotic"],
         label_col="method",
+        od_cut_off=0.1,
     ):
         df = self.__dict__[src]
         self.well = {}
         for well in df.well.unique():
             print(well)
             w = Well(
-                df, well, od_label=od_label, lum_label=lum_label, label_col="method"
+                df,
+                well,
+                od_label=od_label,
+                lum_label=lum_label,
+                label_col=label_col,
+                od_cut_off=od_cut_off,
             )
             for feature in features:
                 w.fetch_feature(feature)
