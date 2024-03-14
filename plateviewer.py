@@ -4,19 +4,19 @@ import matplotlib.patches as patches
 
 
 class PlateViewer:
-    def __init__(self, plate):
-        self.plate = plate
+    def __init__(self, wells: dict):
+        self.wells = wells
         self.matrix = self.create_matrix()
 
     def create_matrix(self):
-        well_names = sorted(self.plate.well.keys())
+        well_names = sorted(self.wells.keys())
         rows = sorted(set(well_name[0] for well_name in well_names))
         max_column = max(int(well_name[1:]) for well_name in well_names)
         row_indices = {letter: index for index, letter in enumerate(rows, start=1)}
 
         matrix = [[None for _ in range(max_column)] for _ in range(len(rows))]
 
-        for well_name, well_object in self.plate.well.items():
+        for well_name, well_object in self.wells.items():
             row = row_indices[well_name[0]] - 1
             column = int(well_name[1:]) - 1
             matrix[row][column] = well_object
@@ -36,7 +36,7 @@ class PlateViewer:
             [
                 row
                 for row in reversed(
-                    sorted(set(well_name[0] for well_name in self.plate.well.keys()))
+                    sorted(set(well_name[0] for well_name in self.wells.keys()))
                 )
             ],
         )

@@ -38,20 +38,22 @@ class MicTestMulti:
     def save(self, suffix="", path="", prefix=""):
         self.mic.to_excel(os.path.join(path, prefix + "mic_results" + suffix + ".xlsx"))
 
-    def plot(self, figsize=(6, 3)):
+    def plot_inhibition(self, figsize=(6, 3), save_path=None, name="inhibition.png"):
         h, w = math.ceil(len(self.antibiotics) / 2), 2
         figsize = (figsize[0] * w, figsize[1] * h)
         fig, axs = plt.subplots(h, w, figsize=figsize)
 
         i, j = 0, 0
         for antibiotic in self.antibiotics:
-            self.mic_tests[antibiotic].plot(ax=axs[j, i], xscale="log")
+            self.mic_tests[antibiotic].plot_inhibition(ax=axs[j, i])
             if i == 1:
                 i = 0
                 j += 1
             else:
                 i = 1
         fig.tight_layout()
+        if save_path:
+            plt.savefig(os.path.join(save_path, name), dpi=300)
 
 
 class MicTest:
@@ -61,7 +63,7 @@ class MicTest:
         self.positive = self.eval_pos_wells()
         self.positive_median = self.positive["od_end"].median()
         self.indicator_df = self.eval_assay_wells()
-        self.get_mic()
+        self.inhibition_df, self.mic = self.calc_mic()
 
     def eval_pos_wells(self):
         positive = []
@@ -92,88 +94,35 @@ class MicTest:
 
         return pd.DataFrame().from_records(indicator_df)
 
-    def get_mic(self, n=1000):
-        self.concentrations = self.indicator_df["concentration"].values
-        self.observed_growth = self.indicator_df["growth"].values.astype(int)
-        self.concentration_range = np.logspace(
-            np.log(self.concentrations.min() + 10**-6) + 10**-6,
-            np.log(self.concentrations.max()),
-            n,
+    def calc_mic(self):
+        inhibition = (
+            self.indicator_df[["concentration", "growth"]]
+            .groupby(["concentration"])
+            .mean()
+            .reset_index()
         )
-        if not self.observed_growth.any():
-            self.ci_lower = self.ci_upper = self.mic_estimate = "< " + str(
-                np.min(self.concentrations)
-            )
-        elif self.observed_growth.all():
-            self.ci_lower = self.ci_upper = self.mic_estimate = "> " + str(
-                np.max(self.concentrations)
-            )
-        else:
-            self.estimate_mic_and_ci()
+        mic = inhibition[inhibition.growth <= 0.5].concentration.min()
+        return inhibition, mic
 
-    # Define the step function
-    @staticmethod
-    def step_function(m, concentration):
-        return concentration < m
-
-    # Objective function to minimize
-    @staticmethod
-    def objective_function(m, concentrations, observed_growth):
-        predictions = MicTest.step_function(m, concentrations)
-        sse = np.sum((observed_growth - predictions) ** 2)
-        return sse
-
-    def estimate_mic_and_ci(self):
-        self.sses = np.array(
-            [
-                self.objective_function(m, self.concentrations, self.observed_growth)
-                for m in self.concentration_range
-            ]
-        )
-        ci_indices = np.where(self.sses == np.min(self.sses))[0]
-        self.ci_lower = self.concentration_range[ci_indices[0]]
-        self.ci_upper = self.concentration_range[ci_indices[-1]]
-        self.mic_estimate = (self.ci_lower + self.ci_upper) / 2
-
-    def plot(self, xscale="log", ax=None):
+    def plot_inhibition(self, xscale="log", ax=None):
         if ax is None:
             _, ax = plt.subplots()
         ax.scatter(
-            self.indicator_df["concentration"],
-            self.indicator_df["growth"],
+            self.inhibition_df["concentration"],
+            self.inhibition_df["growth"],
             color="blue",
             label="Observations",
         )
-        if not type(self.mic_estimate) == str:
-            step_min = self.step_function(self.ci_lower, self.concentration_range)
-            step_mean = self.step_function(self.mic_estimate, self.concentration_range)
-            step_max = self.step_function(self.ci_upper, self.concentration_range)
-            ax.fill_between(
-                self.concentration_range,
-                step_min,
-                step_max,
-                color="red",
-                alpha=0.2,
-                label="best guess range",
-            )
-            ax.plot(
-                self.concentration_range,
-                step_mean,
-                "r--",
-                label=f"Estimated MIC: {self.mic_estimate:.2f} ug/ml",
-            )
+        ax.axvline(x=self.mic, color="green", linestyle="--", label="MIC")
+        ax.axhline(y=0.5, color="gray", linestyle="--", label="50% Threshold")
         ax.set_xlabel("Concentration (ug/ml)")
-        ax.set_ylabel("Growth")
-        ax.set_title(f"Growth vs Concentration for {self.name}")
+        ax.set_ylabel("Fraction of Wells that Grew")
+        ax.set_title(
+            f"f(growth) vs concentration for {self.name} (mic = {self.mic} [$\mu g/ml$])"
+        )
         ax.legend()
         ax.set_xscale(xscale)
-
         return ax
 
     def results(self):
-        return {
-            "antibiotic": self.name,
-            "mic_best_middle": self.mic_estimate,
-            "mic_best_lower": self.ci_lower,
-            "mic_best_upper": self.ci_upper,
-        }
+        return {"antibiotic": self.name, "mic": self.mic}
