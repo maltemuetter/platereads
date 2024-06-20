@@ -89,6 +89,7 @@ class MicTest:
                         "growth": well.od_growth,
                         "concentration": float(well.concentration),
                         "type": well.well_type,
+                        "od_end": well.od_end,
                     }
                 )
 

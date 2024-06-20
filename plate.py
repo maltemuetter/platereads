@@ -64,11 +64,11 @@ class Plate:
         else:
             self.name = plate_name
         if filetype == ".xml":
-            self.load_xml()
+            self.load_xml(polymeasure)
         else:
             self.load_xlsx(polymeasure)
 
-    def load_xml(self):
+    def load_xml(self, polymeasure):
         self.xml_files = []
         for root, _, files in os.walk(self.path):
             for file in files:
@@ -79,7 +79,7 @@ class Plate:
                     and (self.identifier in file)
                 ):
                     filepath = os.path.join(root, file)
-                    self.xml_files.append(XmlFile(filepath))
+                    self.xml_files.append(XmlFile(filepath, polymeasure))
         self.summarize_files(self.xml_files)
 
     def load_xlsx(self, polymeasure):
@@ -129,7 +129,7 @@ class Plate:
             summary["timedelta"] = summary.datetime - summary.datetime.min()
         else:
             summary["timedelta"] = summary.time_start - summary.time_start.min()
-        summary["time"] = summary.timedelta.apply(lambda x: round(x.seconds / 3600, 2))
+        summary["time"] = summary.timedelta.apply(lambda x: round(x.seconds / 3600, 3))
         summary["identifier"] = self.identifier
         summary.signal = np.maximum(summary.signal, 0)
         self.file_summary = summary

@@ -6,10 +6,10 @@ class LumData:
     def __init__(self, data, control_col="control"):
         self.input_data = data
         self.control = self.input_data[control_col]
-        if self.control.any() == False:
+        if not self.control.any():
             raise Exception("No control data")
-        self.signal_data = self.input_data[self.control == False]
-        self.control_data = self.input_data[self.control == True]
+        self.signal_data = self.input_data[self.control == False].copy()
+        self.control_data = self.input_data[self.control == True].copy()
 
     def average_noise(self):
         avg_control_signal = (
@@ -18,7 +18,7 @@ class LumData:
         avg_control_signal.rename(columns={"signal": "noise"}, inplace=True)
         self.signal_data = pd.merge(
             self.signal_data, avg_control_signal, on="time", how="left"
-        )
+        ).copy()
         self.norm_signal()
 
     def closest_control_noise(self):
@@ -35,7 +35,7 @@ class LumData:
             ]
             avg_closest_control_signal = closest_control_signals.mean()
             self.signal_data.loc[index, "noise"] = avg_closest_control_signal
-            self.norm_signal()
+        self.norm_signal()
 
     def find_closest_controls(self, well, time):
         def dist(well1, well2):
@@ -64,7 +64,7 @@ class LumData:
         return closest_wells
 
     def norm_signal(self):
-        self.signal_data["rlu"] = self.signal_data.signal - self.signal_data.noise
+        self.signal_data["rlu"] = self.signal_data["signal"] - self.signal_data["noise"]
         self.signal_data["signal_to_noise"] = round(
-            self.signal_data.signal / self.signal_data.noise, 2
+            self.signal_data["signal"] / self.signal_data["noise"], 2
         )
