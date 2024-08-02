@@ -5,13 +5,20 @@ from dateutil.relativedelta import relativedelta
 
 
 def parse_duration(duration_str):
-    duration_parts = duration_str.split("T")[-1].split("H")[-1]
-    time = [0, 0, 0]
-    for i, t in enumerate(["H", "M", "S"]):
-        duration_parts = duration_parts.split(t)
-        if len(duration_parts) > 1:
-            time[i] = float(duration_parts[0])
-        duration_parts = duration_parts[-1]
+    duration_str = duration_str.replace("PT", "")
+    time = [0, 0, 0]  # hours, minutes, seconds
+    if "H" in duration_str:
+        hours_part = duration_str.split("H")
+        time[0] = float(hours_part[0])
+        duration_str = hours_part[1]
+    if "M" in duration_str:
+        minutes_part = duration_str.split("M")
+        time[1] = float(minutes_part[0])
+        duration_str = minutes_part[1]
+    if "S" in duration_str:
+        seconds_part = duration_str.split("S")
+        time[2] = float(seconds_part[0])
+
     return relativedelta(hours=time[0], minutes=time[1], seconds=time[2])
 
 
@@ -57,13 +64,25 @@ class XmlFile:
             section_name = section.get("Name")
             section_start_str = section.get("Time_Start")
             section_start = parser.parse(section_start_str)
-            data_elements = section.findall("Data")
-            for data_elem in data_elements:
-                data_start_duration = parse_duration(data_elem.get("Time_Start"))
-                data_start_time = section_start + data_start_duration
-                data.extend(
-                    self.eval_data_element(data_elem, section_name, data_start_time)
-                )
+            for data_elem in section.findall("Data"):
+                cycle = data_elem.get("Cycle")
+                for well in data_elem.findall("Well"):
+                    well_pos = well.get("Pos")
+                    row = "".join(filter(lambda x: not x.isdigit(), well_pos))
+                    col = "".join(filter(lambda x: x.isdigit(), well_pos))
+                    signal = float(well.find("Single").text)
+                    data.append(
+                        {
+                            "well": well_pos,
+                            "row": row,
+                            "column": int(col),
+                            "method": section_name,
+                            "signal": signal,
+                            "file_name": self.name,
+                            "time_start": section_start,
+                            "cycle": cycle,
+                        }
+                    )
         return pd.DataFrame(
             data,
             columns=[
