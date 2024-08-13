@@ -6,7 +6,6 @@ from .xlsxfile import XlsxFile
 from .xmlfile import XmlFile
 from .setup import Setup
 from .well import Well
-import os
 
 
 class Plate:
@@ -80,6 +79,7 @@ class Plate:
                 ):
                     filepath = os.path.join(root, file)
                     self.xml_files.append(XmlFile(filepath, polymeasure))
+
         self.summarize_files(self.xml_files)
 
     def load_xlsx(self, polymeasure):
@@ -125,11 +125,6 @@ class Plate:
             df["file_name"] = file.name
             summary.append(df)
         summary = pd.concat(summary)
-        if self.filetype == ".xlsx":
-            summary["timedelta"] = summary.datetime - summary.datetime.min()
-        else:
-            summary["timedelta"] = summary.time_start - summary.time_start.min()
-        summary["time"] = summary.timedelta.apply(lambda x: round(x.seconds / 3600, 3))
         summary["identifier"] = self.identifier
         summary.signal = np.maximum(summary.signal, 0)
         self.file_summary = summary
