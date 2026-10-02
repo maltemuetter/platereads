@@ -40,3 +40,7 @@ plate.add_setup("setup.xlsx")
 
 Written during my PhD at ETH Zurich to evaluate high-throughput antibiotic
 experiments run on an automated liquid-handling platform.
+
+## License
+
+MIT, see `LICENSE`.

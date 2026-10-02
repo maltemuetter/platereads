@@ -4,7 +4,7 @@ import pandas as pd
 from icecream import ic
 from .xlsxfile import XlsxFile
 from .xmlfile import XmlFile
-from .setup import Setup
+from .plate_setup import Setup
 from .well import Well
 
 
