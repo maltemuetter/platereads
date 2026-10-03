@@ -58,6 +58,7 @@ class Plate:
         self.data = pd.DataFrame()
         self.identifier = identifier
         self.filetype = filetype
+
         if not plate_name:
             self.name = os.path.basename(os.getcwd())
         else:
@@ -135,7 +136,7 @@ class Plate:
         lum_label=None,
         src="data",
         features=["concentration", "antibiotic"],
-        label_col="method",
+        label_col="label",
         od_cut_off=0.1,
     ):
         df = self.__dict__[src]
